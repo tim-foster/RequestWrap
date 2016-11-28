@@ -27,18 +27,38 @@ namespace RequestWrapTest
         };
 
         [TestMethod]
-        public void TestMethod1()
+        public void getNullTest()
         {
             IRequestWrapper a = new APIwrapper("http://www.testURL.com");
             a.addPreRequest(addHeaders)
                 .setTimeout(20000)
-                .setNullHandler();
+                .setNullHandler()
+                .endPointValidator((b) => b.Contains("bloop"));
 
             var result = a.get("bloop");
             Console.WriteLine(result.Result);
 
-            a.setMessageHandler(new TestHandler());
+            a.setMessageHandler(new TestHandler()).clearEndPointValidator();
             Console.WriteLine(a.get("bleep").Result);
+        }
+
+        [TestMethod]
+        public void invalidEndpoint()
+        {
+            IRequestWrapper a = new APIwrapper("http://www.testURL.com");
+            a.addPreRequest(addHeaders)
+                .setTimeout(20000)
+                .setNullHandler()
+                .endPointValidator((b) => b.Contains("blah"));
+
+            try
+            {
+                var result = a.get("bloop").Result;
+            }
+            catch (AggregateException e)
+            {
+                Console.WriteLine(e.Message);
+            }
         }
 
         public void addHeaders(IRequestWrapper v)
@@ -48,12 +68,37 @@ namespace RequestWrapTest
             v.HTTPclient.DefaultRequestHeaders.Add("X-WSSE", "blah");
         }
 
-        public bool endPointValidator(string endPointURI)
-        {
 
-            return true;
+        [TestMethod]
+        public void scheduleGetException()
+        {
+            IRequestWrapper a = new APIwrapper("http://www.testURL.com");
+            a.setNullHandler();
+            try
+            {
+                a.scheduleGet("blah");
+            }
+            catch (NotImplementedException e)
+            {
+                Assert.AreEqual("schedule get not implemented", e.Message);
+            }
         }
 
+        [TestMethod]
+        public void executeTasksException()
+        {
+            IRequestWrapper a = new APIwrapper("http://www.testURL.com");
+            a.setNullHandler().clearEndPointModifier();
+            
+            try
+            {
+                a.executeTasks();
+            }
+            catch (NotImplementedException e)
+            {
+                Assert.AreEqual("execute tasks not implemented", e.Message);
+            }
+        }
     }
 
     internal class TestHandler : DelegatingHandler
@@ -93,6 +138,29 @@ namespace RequestWrapTest
             a.resetHandler().clearPreRequest().clearEndPointValidator();
             a.endPointModifier(p.Invoke);
             var result = a.get("data/2015/acs1?get=NAME,B01001_001E&for=state:*");
+            Console.WriteLine(result.Result);
+        }
+
+    }
+
+    [TestClass]
+    public class basicPostTest
+    {
+        delegate string endPointModifier(string EndPointURI);
+
+        [TestMethod]
+        public void postTest()
+        {
+            string startupPath = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName;
+            var key = File.ReadAllText($"{startupPath}\\censusAPIkey.txt");
+            IRequestWrapper a = new APIwrapper("http://api.census.gov");
+
+            endPointModifier p = EndPointURI => string.Format("{EndPointURI}&key={key}");
+
+
+            a.resetHandler().clearPreRequest().clearEndPointValidator().setNullHandler();
+            a.endPointModifier(p.Invoke);
+            var result = a.post("data/2015/acs1?get=NAME,B01001_001E&for=state:*", "");
             Console.WriteLine(result.Result);
         }
 

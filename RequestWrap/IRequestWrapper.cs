@@ -13,6 +13,7 @@ namespace RequestWrap
 
         #region future improvements
         int scheduleGet(string endpointURI);
+        bool executeTasks();
 
         #endregion
 
